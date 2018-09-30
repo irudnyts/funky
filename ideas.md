@@ -18,5 +18,3 @@
     - define a сircumscribed square
     - define angeled lines in this square
     - find intersection of lines and shape edges, that will define the start and end of lines
-    
-* A test line
