@@ -1,0 +1,34 @@
+v <- rnorm(n =100,mean = 50,sd =20)   ## test data for numeric 
+vchar <- as.character(v)              ## test data for character
+describe.vector <- function(x){
+  type <- class(x)
+  N_unique <- length(unique(x))
+  N_observation <- length(x)
+  NA_number <- sum(is.na(x))
+  NA_portion <- mean(is.na(x))
+  Summary <- summary(x)
+  normality <- "not applicable"
+  if (class(x) == "numeric") {
+    coerce_to_number <-  "already number"
+    normality <- shapiro.test(x)
+  } else if (class(x) == "character")  {
+    
+    if (mean(is.na(as.numeric(x))) <0.9){
+    coerce_to_number <- "yes" 
+    }
+  } else if (class(x) == "factor"){
+    coerce_to_number <- "better keep as factor"
+  } else{coerce_to_number <- "no"}
+  dt <- data.frame(type = type,
+                   N_observation =N_observation,
+                   portion_of_NA = NA_portion,
+                   distinct=N_unique,
+                   missing = sum(is.na(x)),
+                   coerce_to_number = coerce_to_number)
+   output <- list(dt, summary = summary(x), normality_test = normality)
+  return(output)
+}
+
+## testing
+describe.vector(v)
+describe.vector(vchar)
