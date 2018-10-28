@@ -76,7 +76,7 @@ MSSubClass_summary %>%
     arrange(MSSubClass_clusters)
 
 
-# MSSubClass
+# LotArea
 #-------------------------------------------------------------------------------
 
 houses %>% ggplot() + geom_histogram(aes(LotArea))
