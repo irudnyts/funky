@@ -1,7 +1,7 @@
 # load packages
 #-------------------------------------------------------------------------------
 
-packages <- c("here", "dplyr", "funModeling", "ggplot2", "magrittr", "tibble", "gtools", "minerva")
+packages <- c("here", "dplyr", "funModeling", "ggplot2", "magrittr", "tibble", "gtools", "minerva", "mgcv", "ggpubr")
 sapply(packages, library,
        character.only = TRUE, logical.return = TRUE, quietly = TRUE)
 
@@ -91,11 +91,15 @@ houses %>%
 
 # Street
 #-------------------------------------------------------------------------------
-street_summary <- describe(houses$Street)
-street_summary
+describe(houses$Street)
+houses %>% group_by(Street) %>% dplyr::summarize(n = n(), mean_price = mean(SalePrice)) %>%
+    arrange(desc(n))
+houses %>% group_by(Street) %>% dplyr::summarize(n = n(), sd_price = sd(SalePrice)) %>%
+    arrange(desc(n))
+houses %>% ggplot() + geom_boxplot(aes(x = Street, y = SalePrice))
+summary(lm(SalePrice ~ Street, data =houses))
 
-
-## 99.6% of streets are paved.. maybe we can get riid of this parameter
+##  99.6% of streets are paved... And only 0.4% gravel, still gravel group looks like different 
 
 
 #Alley
@@ -134,4 +138,35 @@ summary(aov_fit_lot_shape)
 TukeyHSD(aov_fit_lot_shape) ## all comparisons have very low pvalues...
 
 ## I think it is not a bad idea to merge IR1 with IR3 and keep the rest.
+
+
+#LandContour: Flatness of the property
+#-------------------------------------------------------------------------------
+describe(houses$LandContour)
+compare_means(SalePrice ~ LandContour, data = houses) ## quite useful function from ggpubr
+houses %>% ggplot() + geom_boxplot(aes(x = LandContour, y = SalePrice)) 
+land_contour_fit <- aov(SalePrice ~ LandContour, data = houses)
+TukeyHSD(land_contour_fit) 
+## don't think we can merge groups here, for now I would keep them as they are
+
+
+#Utilities: Type of utilities available
+#-------------------------------------------------------------------------------
+describe(houses$Utilities)
+# as you see only one NoSeWa, don't think we can use this variable
+
+#LotConfig: Lot configuration
+#-------------------------------------------------------------------------------
+describe(houses$LotConfig)
+compare_means(SalePrice ~ LotConfig, data = houses) ## quite useful function from ggpubr
+houses %>% ggplot() + geom_boxplot(aes(x = LotConfig, y = SalePrice)) 
+lot_config_fit <- aov(SalePrice ~ LotConfig, data = houses)
+TukeyHSD(lot_config_fit) 
+
+## merge CulDsac with FR3, merge Corner, FR2, inside
+summary(lm(SalePrice ~ LotConfig, data = houses))
+LC <- gsub("FR3|CulDSac", "Cat1", houses$LotConfig, perl = TRUE)
+LC <- gsub("Corner|FR2|Inside", "Cat2", LC)
+summary(lm(SalePrice ~ LC, data = houses))
+boxplot(houses$SalePrice~LC)
 
