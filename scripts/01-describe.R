@@ -19,6 +19,45 @@ dim(houses)
 
 str(houses)
 
+###############################################################################
+
+
+
+
+# this function orders levels of variable to display ordered by SalePrice boxplot
+# as input takes name of variable OR it's index as integer as a string and returns ordered boxplot
+# number on top of boxes represent portion of this level
+ordered_box_plot <- function(var = NULL){
+    if (is.null(var)){
+        message("define variable")
+        return(NULL)
+    }
+    if (is.character(var)){
+        var <- grep(var, colnames(houses))
+    }
+    if (is.numeric(var)) {
+        if (var >= ncol(houses)){
+            message("variable index is greater than number of columns")
+            return(NULL)
+        }
+        var_ind <- var
+        var <- houses[, var]
+        var_name <- colnames(houses)[var_ind]
+        var_description <- describe(var)
+        var_proportions <- round((var_description$values$frequency / nrow(houses)), 3)
+        var_by_price <- houses %>% group_by(get(var_name)) %>% dplyr::summarize(n = n(), mean_price = mean(SalePrice)) %>%
+            arrange(desc(n)) %>% as.data.frame()
+        var_reordered <- factor(var, levels = var_by_price[,1][order(var_by_price[,3])])
+        ggp <- houses %>% ggplot() + geom_boxplot(aes(x = var_reordered, y = SalePrice)) + labs(x = names(var) )
+        
+        ggp + annotate("text", label = var_proportions, x = 1:length(unique(var)), y = max(houses$SalePrice)*0.9 ) 
+    } else {
+        message("type of input variable should be either character or integer")
+    }
+}
+
+###############################################################################
+
 # SalePrice
 #-------------------------------------------------------------------------------
 
@@ -169,4 +208,46 @@ LC <- gsub("FR3|CulDSac", "Cat1", houses$LotConfig, perl = TRUE)
 LC <- gsub("Corner|FR2|Inside", "Cat2", LC)
 summary(lm(SalePrice ~ LC, data = houses))
 boxplot(houses$SalePrice~LC)
+
+# LandSlope: Slope of property
+#-------------------------------------------------------------------------------
+describe(houses$LandSlope)
+houses %>% ggplot() + geom_boxplot(aes(x = LandSlope, y = SalePrice))
+TukeyHSD(aov(SalePrice ~ LandSlope, data = houses))
+## they don't look like really different. Should we get rid of them ?
+
+#Neighborhood
+#-------------------------------------------------------------------------------
+describe(houses$Neighborhood)
+houses %>% ggplot() + geom_boxplot(aes(x = Neighborhood, y = SalePrice))
+price_by_neib<- houses %>% group_by(Neighborhood) %>% dplyr::summarize(n = n(), mean_price = mean(SalePrice)) %>%
+    arrange(desc(n))
+neigh_reordered <- factor(houses$Neighborhood, levels = price_by_neib$Neighborhood[order(price_by_neib$mean_price)])
+houses %>% ggplot() + geom_boxplot(aes(x = neigh_reordered, y = SalePrice))
+neigh_tukeyHSD <- TukeyHSD(aov(SalePrice ~ Neighborhood, data = houses))$Neighborhood %>% as.data.frame()
+
+## my impression is that we have quite smooth gdarient of mean / median value of SalePrice as a function of Neighborhood
+## we can intorduce bins, but will do it rather arbitrary. 
+## I don't know whether it's a good idea to substitute names of neighborhood
+## by intergers (or maybe levels) representing rank of each neighborhood.
+
+# Condition1:
+#-----------------------------------------------------------------------------------
+describe(houses$Condition1)
+houses %>% ggplot() + geom_boxplot(aes(x = Condition1, y = SalePrice))
+ordered_box_plot("Condition1")
+
+#-----------------------------------------------------------------------------------
+describe(houses$Condition2)
+ordered_box_plot("Condition2")
+# the same, just a gradient
+
+#BldgType: Type of dwelling
+#----------------------------------------------------------------------------------
+describe(houses$BldgType)
+ordered_box_plot("BldgType")
+
+#HouseStyle: Style of dwelling
+#----------------------------------------------------------------------------------
+ordered_box_plot("HouseStyle")
 
