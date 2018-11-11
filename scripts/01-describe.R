@@ -27,7 +27,12 @@ str(houses)
 # this function orders levels of variable to display ordered by SalePrice boxplot
 # as input takes name of variable OR it's index as integer as a string and returns ordered boxplot
 # number on top of boxes represent portion of this level
-ordered_box_plot <- function(var = NULL){
+ordered_box_plot <- function(var = NULL, clust = 1){
+    if (length(clust) ==1){
+        clust <- 1
+    } else {
+        clust <- clust
+    }
     if (is.null(var)){
         message("define variable")
         return(NULL)
@@ -47,15 +52,16 @@ ordered_box_plot <- function(var = NULL){
         var_proportions <- round((var_description$values$frequency / nrow(houses)), 3)
         var_by_price <- houses %>% group_by(get(var_name)) %>% dplyr::summarize(n = n(), mean_price = mean(SalePrice)) %>%
             arrange(desc(n)) %>% as.data.frame()
+        var_by_price$proportion <- var_by_price$n / nrow(houses)
         var_reordered <- factor(var, levels = var_by_price[,1][order(var_by_price[,3])])
-        ggp <- houses %>% ggplot() + geom_boxplot(aes(x = var_reordered, y = SalePrice)) + labs(x = names(var) )
-        
-        ggp + annotate("text", label = var_proportions, x = 1:length(unique(var)), y = max(houses$SalePrice)*0.9 ) 
+        ggp <- houses %>% ggplot() + geom_boxplot(aes(x = var_reordered, y = SalePrice, fill = clust)) + labs(x = names(var) )
+        proportion <- round(var_by_price$proportion[order(var_by_price[,3])], 3)
+        ggp + annotate("text", label = proportion, x = 1:length(unique(var)), y = max(houses$SalePrice)*0.9 ) 
     } else {
         message("type of input variable should be either character or integer")
     }
 }
-
+ordered_box_plot('RoofMatl')
 ###############################################################################
 
 # SalePrice
@@ -251,3 +257,94 @@ ordered_box_plot("BldgType")
 #----------------------------------------------------------------------------------
 ordered_box_plot("HouseStyle")
 
+#OverallQual
+#----------------------------------------------------------------------------------
+describe(houses$OverallQual)
+# currently it is integer
+houses %>% ggplot(aes(x = OverallQual, y = SalePrice)) + geom_point() +
+    stat_smooth(method = "loess", formula = y ~ x)
+houses %>% ggplot(aes(x = OverallQual, y = SalePrice)) + geom_point() +
+    stat_smooth(method = "lm", formula = y ~ x)
+compare_means(SalePrice ~ OverallQual, data = houses) %>% as.data.frame() %>% filter(p.signif == 'ns')
+## my impression is that Overalqual with values 1 and 2 are identical and I would group them together:
+qm_houses <- houses %>% mutate(OverallQual_merged = ifelse(OverallQual <2,2,OverallQual )) 
+qm_houses %>% ggplot(aes(x = OverallQual_merged, y = SalePrice)) + geom_point() +
+    stat_smooth(method = "loess", formula = y ~ x)
+## to my mind loess better approximate relationship between OverallQual and SalePrice,
+## can we use polynomial fir for OverrallQual?
+## or we just coerce to factor and let the model choose coefficients
+
+summary(lm(SalePrice ~ as.factor(OverallQual), data = houses))
+summary(lm(SalePrice ~ OverallQual, data = houses))
+## here I compared sum of residuals of two model : intact OverallQual and as.factor() and I've got 9% reduction of total residuels
+sum(abs(residuals(lm(SalePrice ~ OverallQual, data = houses)))) / sum(abs(residuals(lm(SalePrice ~as.factor( OverallQual ), data = houses))))
+
+#OverallCond
+#-----------------------------------------------------------------------------------
+describe(houses$OverallCond)
+houses %>% ggplot(aes(x = OverallCond, y = SalePrice)) + geom_point() +
+    stat_smooth(method = "lm", formula = y ~ x)
+houses%>% filter(OverallCond == 2) %>% select(OverallCond, SalePrice)
+## not sure it's a good predictor
+
+summary(lm(SalePrice ~ as.factor(OverallQual), data = houses))
+sum(abs(residuals(lm(SalePrice ~ as.factor(OverallQual), data = houses)))) / sum(abs(residuals(lm(SalePrice ~as.factor(OverallQual) + as.factor(OverallCond), data = houses))))
+## now I sure wee need to get rid of it beause it does not bring anything
+
+
+#YearBuilt
+#--------------------------------------------------------------------------------
+describe(houses$YearBuilt)
+houses %>% ggplot(aes(x = YearBuilt, y = SalePrice)) + geom_point() + stat_smooth(method = "lm", formula = y ~ x)
+summary(lm(SalePrice ~ YearBuilt, data = houses)) #Adjusted R-squared:  0.2729 
+
+
+#YearRemodAdd
+#---------------------------------------------------------------------------------
+describe(houses$YearRemodAdd)
+
+houses %>% ggplot(aes(x = YearRemodAdd, y = SalePrice)) + geom_point() + stat_smooth(method = "lm", formula = y ~ x)
+summary(lm(SalePrice ~ YearRemodAdd , data = houses))  #Adjusted R-squared:  0.2566
+summary(lm(SalePrice ~ YearRemodAdd + YearBuilt, data = houses))  #Adjusted R-squared:  0.3324 
+
+sum(abs(residuals(lm(SalePrice ~YearRemodAdd, data = houses)))) / sum(abs(residuals(lm(SalePrice ~YearBuilt + YearRemodAdd, data = houses))))
+#1.05, so addition of YearBuilt on top of YearRemodAdd reduces residuals by 5 % 
+
+# I would keep YearRemodAdd only
+
+
+#RoofStyle
+#-------------------------------------------------------------------------------
+ordered_box_plot("RoofStyle")
+compare_means(SalePrice ~ RoofStyle, data = houses)
+# 1 out 15 comparisons has pvalue < 0.05 and one level has 78% of cases.
+#don't think it's meaningfull parameter
+
+
+
+#RoofMatl
+#-------------------------------------------------------------------------------
+ordered_box_plot('RoofMatl')
+compare_means(SalePrice ~ RoofMatl, data = houses) %>% as.data.frame() %>% arrange(p.adj)
+
+## either get rid of this variable of keep CompShg and WdShngl
+
+#Exterior1st
+#--------------------------------------------------------------------------------------
+
+ordered_box_plot('Exterior1st', clust = tr)
+compare_means(SalePrice ~ Exterior1st, data = houses) %>% as.data.frame() %>% arrange(p.adj)
+t <- houses %>% group_by(Exterior1st) %>% dplyr::summarize(n = n(), mean_price = mean(SalePrice)) %>%
+    arrange(desc(n)) %>% as.data.frame()
+tk <- kmeans(t$mean_price, centers = 3)
+tk2 <- kmeans(t$mean_price, centers = 3)
+mean(tk$cluster == tk2$cluster)
+houses %>% ggplot(aes(x = Exterior1st, y = SalePrice, fill = tr))+ geom_boxplot()
+
+tr <- c()
+for (i in 1:length(t$n)){
+    tr <- c(tr, rep(tk$cluster[i] , t$n[i]))
+}
+ht <- houses
+ht$tr <- tr
+ht %>% filter(tr == 1) %>% select(tr, Exterior1st)
